@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pickleball Scheduler</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1e88e5">
+
+  <!-- PWA / Offline support -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- iOS web app support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+
+
+<style>
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 16px;
+  background: #f7f7f7;
+}
+h1 {
+  text-align: center;
+}
+input, button {
+  font-size: 18px;
+  padding: 10px;
+  width: 100%;
+  margin-top: 8px;
+}
+button {
+  background: #1e88e5;
+  color: white;
+  border: none;
+  border-radius: 12px;
+}
+.section {
+  margin-top: 16px;
+}
+.card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+.court {
+  font-size: 26px;
+  font-weight: bold;
+  text-align: center;
+}
+.team {
+  font-size: 22px;
+  text-align: center;
+  margin: 6px 0;
+}
+.sitout {
+  font-size: 20px;
+  text-align: center;
+}
+</style>
+</head>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+
+<body>
+<h1>Pickleball Scheduler</h1>
+
+<div class="section">
+  <label>Player Names (comma separated)</label>
+  <input id="playersInput" placeholder="Alex, Sam, Jordan, Riley">
+</div>
+
+<div class="section">
+  <label>Number of Courts</label>
+  <input type="number" id="courtsInput" value="1" min="1" max="8">
+</div>
+
+<div class="section">
+  <button onclick="start()">Generate First Round</button>
+</div>
+
+<div class="section" id="output"></div>
+
+<div class="section">
+  <button onclick="nextRound()">NEXT ROUND</button>
+</div>
+
+<script>
+let players = [];
+let courts = 1;
+let playCount = {};
+let usedPartners = new Set();
+
+function key(a, b) {
+  return [a,b].sort().join("|");
+}
+
+function start() {
+  players = document.getElementById("playersInput").value
+    .split(",")
+    .map(p => p.trim())
+    .filter(p => p.length);
+
+  courts = parseInt(document.getElementById("courtsInput").value);
+
+  playCount = {};
+  usedPartners.clear();
+
+  players.forEach(p => playCount[p] = 0);
+  nextRound();
+}
+
+function nextRound() {
+  let sorted = {};
+
+  players.forEach(p => {
+    let c = playCount[p];
+    if (!sorted[c]) sorted[c] = [];
+    sorted[c].push(p);
+  });
+
+  let available = [];
+  Object.keys(sorted).sort((a,b)=>a-b).forEach(k => {
+    available.push(...sorted[k].sort(() => Math.random()-0.5));
+  });
+
+  let html = "";
+  for (let i=1; i<=courts; i++) {
+    if (available.length < 4) break;
+
+    let group = available.splice(0,4);
+    let combos = [
+      [[group[0],group[1]],[group[2],group[3]]],
+      [[group[0],group[2]],[group[1],group[3]]],
+      [[group[0],group[3]],[group[1],group[2]]]
+    ].sort(() => Math.random()-0.5);
+
+    let chosen = combos.find(c =>
+      !usedPartners.has(key(c[0][0], c[0][1])) &&
+      !usedPartners.has(key(c[1][0], c[1][1]))
+    ) || combos[0];
+
+    usedPartners.add(key(chosen[0][0], chosen[0][1]));
+    usedPartners.add(key(chosen[1][0], chosen[1][1]));
+
+    chosen[0].forEach(p => playCount[p]++);
+    chosen[1].forEach(p => playCount[p]++);
+
+    html += `
+      <div class="card">
+        <div class="court">COURT ${i}</div>
+        <div class="team">${chosen[0][0]} & ${chosen[0][1]}</div>
+        <hr>
+        <div class="team">${chosen[1][0]} & ${chosen[1][1]}</div>
+      </div>`;
+  }
+
+  if (available.length) {
+    html += `
+      <div class="card sitout">
+        Sitting out:<br>${available.join(", ")}
+      </div>`;
+  }
+
+  document.getElementById("output").innerHTML = html;
+}
+</script>
+</body>
+</html>
