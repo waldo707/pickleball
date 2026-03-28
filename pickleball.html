@@ -67,16 +67,15 @@
       margin: 6px 0;
     }
 
-    .sitout {
-      font-size: 18px;
-      text-align: center;
-      margin-top: 12px;
-    }
-
     hr {
       border: none;
       border-top: 1px solid #ccc;
       margin: 8px 0;
+    }
+
+    .sitout {
+      text-align: center;
+      font-size: 18px;
     }
   </style>
 </head>
@@ -105,7 +104,7 @@
   </div>
 
 <script>
-// ===================== STATE =====================
+/* ===================== STATE ===================== */
 let players = [];
 let courts = 1;
 let playCount = {};
@@ -114,15 +113,14 @@ let usedPartners = new Set();
 let currentRound = null;
 let nextRoundData = null;
 
-// ===================== HELPERS =====================
+/* ===================== HELPERS ===================== */
 function key(a, b) {
   return [a, b].sort().join("|");
 }
 
-// ===================== ROUND GENERATION =====================
+/* ===================== ROUND GENERATION ===================== */
 function generateRound() {
   let grouped = {};
-
   players.forEach(p => {
     let count = playCount[p];
     if (!grouped[count]) grouped[count] = [];
@@ -130,9 +128,11 @@ function generateRound() {
   });
 
   let available = [];
-  Object.keys(grouped).sort((a,b) => a - b).forEach(k => {
-    available.push(...grouped[k].sort(() => Math.random() - 0.5));
-  });
+  Object.keys(grouped)
+    .sort((a, b) => a - b)
+    .forEach(k => {
+      available.push(...grouped[k].sort(() => Math.random() - 0.5));
+    });
 
   let matches = [];
 
@@ -152,3 +152,82 @@ function generateRound() {
       !usedPartners.has(key(c[1][0], c[1][1]))
     ) || combos[0];
 
+    usedPartners.add(key(chosen[0][0], chosen[0][1]));
+    usedPartners.add(key(chosen[1][0], chosen[1][1]));
+
+    chosen[0].forEach(p => playCount[p]++);
+    chosen[1].forEach(p => playCount[p]++);
+
+    matches.push({
+      court: i,
+      teamA: chosen[0],
+      teamB: chosen[1]
+    });
+  }
+
+  return {
+    matches: matches,
+    sitouts: available
+  };
+}
+
+/* ===================== START / ADVANCE ===================== */
+function start() {
+  players = document.getElementById("playersInput").value
+    .split(",")
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  courts = parseInt(document.getElementById("courtsInput").value);
+
+  playCount = {};
+  usedPartners.clear();
+  players.forEach(p => playCount[p] = 0);
+
+  currentRound = generateRound();
+  nextRoundData = generateRound();
+
+  render();
+}
+
+function nextRound() {
+  currentRound = nextRoundData;
+  nextRoundData = generateRound();
+  render();
+}
+
+/* ===================== RENDERING ===================== */
+function renderRound(title, round) {
+  if (!round) return "";
+
+  let html = `<h2>${title}</h2>`;
+
+  round.matches.forEach(m => {
+    html += `
+      <div class="card">
+        <div class="court">COURT ${m.court}</div>
+        <div class="team">${m.teamA[0]} & ${m.teamA[1]}</div>
+        <hr>
+        <div class="team">${m.teamB[0]} & ${m.teamB[1]}</div>
+      </div>`;
+  });
+
+  if (round.sitouts.length) {
+    html += `
+      <div class="card sitout">
+        Sitting out:<br>${round.sitouts.join(", ")}
+      </div>`;
+  }
+
+  return html;
+}
+
+function render() {
+  let html = "";
+  html += renderRound("CURRENT ROUND", currentRound);
+  html += renderRound("NEXT MATCH (COMING UP)", nextRoundData);
+  document.getElementById("output").innerHTML = html;
+}
+</script>
+</body>
+</html>
