@@ -126,6 +126,10 @@ let usedPartners = new Set();
 let currentRound = null;
 let nextRoundData = null;
 
+// ===================== TIMER STATE =====================
+let timerSeconds = 8 * 60;   // 8 minutes
+let timerInterval = null;
+
 /* ===================== HELPERS ===================== */
 function key(a, b) {
   return [a, b].sort().join("|");
@@ -186,7 +190,8 @@ function generateRound() {
 
 /* ===================== START / ADVANCE ===================== */
 function start() {
-  players = document.getElementById("playersInput").value
+resetTimer();  
+players = document.getElementById("playersInput").value
     .split(",")
     .map(p => p.trim())
     .filter(Boolean);
@@ -204,7 +209,8 @@ function start() {
 }
 
 function nextRound() {
-  currentRound = nextRoundData;
+ resetTimer(); 
+ currentRound = nextRoundData;
   nextRoundData = generateRound();
   render();
 }
@@ -241,6 +247,56 @@ function render() {
   html += renderRound("NEXT MATCH (COMING UP)", nextRoundData);
   document.getElementById("output").innerHTML = html;
 }
+
+// ===================== TIMER FUNCTIONS =====================
+function updateTimerDisplay() {
+  let minutes = Math.floor(timerSeconds / 60);
+  let seconds = timerSeconds % 60;
+
+  document.getElementById("timerDisplay").innerText =
+    `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function playAlarm() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+  gain.gain.setValueAtTime(0.7, ctx.currentTime);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 1.5);
+}
+
+function startTimer() {
+  if (timerInterval) return;
+
+  timerInterval = setInterval(() => {
+    if (timerSeconds > 0) {
+      timerSeconds--;
+      updateTimerDisplay();
+    } else {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      document.getElementById("timerDisplay").style.color = "red";
+      playAlarm();
+    }
+  }, 1000);
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerSeconds = 8 * 60;
+  document.getElementById("timerDisplay").style.color = "black";
+  updateTimerDisplay();
+}
+
 </script>
 </body>
 </html>
