@@ -98,25 +98,81 @@ let players = [];
 let courts = 1;
 let playCount = {};
 let usedPartners = new Set();
+let currentRound = null;
+let nextRoundData = null;
 
 function key(a, b) {
   return [a,b].sort().join("|");
 }
 
 function start() {
+  
+function start() {
   players = document.getElementById("playersInput").value
     .split(",")
     .map(p => p.trim())
-    .filter(p => p.length);
+    .filter(Boolean);
 
   courts = parseInt(document.getElementById("courtsInput").value);
 
   playCount = {};
   usedPartners.clear();
-
   players.forEach(p => playCount[p] = 0);
-  nextRound();
+
+  // NEW: generate two rounds
+  currentRound = generateRound();
+  nextRoundData = generateRound();
+
+  render();
 }
+
+function generateRound() {
+  let sorted = {};
+  players.forEach(p => {
+    let c = playCount[p];
+    if (!sorted[c]) sorted[c] = [];
+    sorted[c].push(p);
+  });
+
+  let available = [];
+  Object.keys(sorted).sort((a,b)=>a-b).forEach(k => {
+    available.push(...sorted[k].sort(() => Math.random()-0.5));
+  });
+
+  let matches = [];
+  let sitouts = [];
+
+  for (let i=1; i<=courts; i++) {
+    if (available.length < 4) break;
+
+    let group = available.splice(0,4);
+    let combos = [
+      [[group[0],group[1]],[group[2],group[3]]],
+      [[group[0],group[2]],[group[1],group[3]]],
+      [[group[0],group[3]],[group[1],group[2]]]
+    ].sort(() => Math.random()-0.5);
+
+    let chosen = combos.find(c =>
+      !usedPartners.has(key(c[0][0], c[0][1])) &&
+      !usedPartners.has(key(c[1][0], c[1][1]))
+    ) || combos[0];
+
+    usedPartners.add(key(chosen[0][0], chosen[0][1]));
+    usedPartners.add(key(chosen[1][0], chosen[1][1]));
+    chosen[0].forEach(p => playCount[p]++);
+    chosen[1].forEach(p => playCount[p]++);
+
+    matches.push({
+      court: i,
+      teamA: chosen[0],
+      teamB: chosen[1]
+    });
+  }
+
+  sitouts = available;
+  return { matches, sitouts };
+}
+
 
 function nextRound() {
   let sorted = {};
